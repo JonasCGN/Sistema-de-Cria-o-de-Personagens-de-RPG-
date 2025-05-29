@@ -51,12 +51,12 @@ menu ps = do
         putStr "Nome do personagem: "; hFlush stdout; n <- getLine
         putStr "Nome do item: "; hFlush stdout; ni <- getLine
         putStr "Descrição do item: "; hFlush stdout; di <- getLine
-        let ps' = [if nome p == n then adicionarItem (Item ni di) p else p | p <- ps]
+        let ps' = [if obterNome p == n then adicionarItem (Item ni di) p else p | p <- ps]
         menu ps'
       "5" -> do
         putStr "Nome do personagem: "; hFlush stdout; n <- getLine
         putStr "Nome do item a remover: "; hFlush stdout; ni <- getLine
-        let ps' = [if nome p == n then removerItem ni p else p | p <- ps]
+        let ps' = [if obterNome p == n then removerItem ni p else p | p <- ps]
         menu ps'
       "6" -> do
         writeFile "personagens.txt" (show ps)

@@ -5,21 +5,23 @@ module Personagem (
     listarPersonagens, removerPersonagem, temItem, descricaoCompleta
 ) where
 
+import Nomeavel
+
 -- Tipos Algébricos
 
-data Classe = Guerreiro | Mago | Ladino | Clerigo | Arqueiro deriving (Show, Eq)
-data Raca = Humano | Elfo | Anao | Orc | Goblin deriving (Show, Eq)
+data Classe = Guerreiro | Mago | Ladino | Clerigo | Arqueiro deriving (Show, Eq, Read)
+data Raca = Humano | Elfo | Anao | Orc | Goblin deriving (Show, Eq, Read)
 
 data Atributos = Atributos {
   forca :: Int,
   inteligencia :: Int,
   destreza :: Int
-} deriving (Show, Eq)
+} deriving (Show, Eq, Read)
 
 data Item = Item {
   nomeItem :: String,
   descricaoItem :: String
-} deriving (Show, Eq)
+} deriving (Show, Eq, Read)
 
 data Personagem = Personagem {
   nome :: String,
@@ -27,7 +29,13 @@ data Personagem = Personagem {
   raca :: Raca,
   atributos :: Atributos,
   inventario :: [Item]
-} deriving (Show, Eq)
+} deriving (Show, Eq, Read)
+
+instance Nomeavel Personagem where
+    obterNome = nome
+
+instance Nomeavel Item where
+    obterNome = nomeItem
 
 -- Funções de manipulação
 criarPersonagem :: String -> Classe -> Raca -> Atributos -> Personagem

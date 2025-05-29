@@ -7,3 +7,6 @@ build:
 
 run:
 	@$(DOCKER_COMPOSE) run --rm haskell runhaskell -isrc src/main.hs
+
+run_interactive:
+	@runhaskell -isrc src/main.hs -i

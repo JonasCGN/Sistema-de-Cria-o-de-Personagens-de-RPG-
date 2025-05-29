@@ -1,0 +1,7 @@
+services:
+  haskell:
+    image: haskell:9.2
+    working_dir: /app
+    volumes:
+      - .:/app
+  

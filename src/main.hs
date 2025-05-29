@@ -7,6 +7,7 @@ module Main where
 import Personagem
 import Nomeavel
 import System.IO
+import Data.Char (toUpper)
 
 -- Função para mostrar todos os personagens com descrição completa
 mostrarPersonagens :: [Personagem] -> IO ()
@@ -35,14 +36,38 @@ menu ps = do
       "1" -> do mostrarPersonagens ps; menu ps
       "2" -> do
         putStr "Nome: "; hFlush stdout; n <- getLine
-        putStr "Classe (Guerreiro/Mago/Ladino/Clerigo/Arqueiro): "; hFlush stdout; c <- getLine
-        putStr "Raça (Humano/Elfo/Anao/Orc/Goblin): "; hFlush stdout; r <- getLine
+        putStrLn "Escolha a Classe:"
+        putStrLn "0. Guerreiro"
+        putStrLn "1. Mago"
+        putStrLn "2. Ladino"
+        putStrLn "3. Clerigo"
+        putStrLn "4. Arqueiro"
+        putStr "Digite o número da classe: "; hFlush stdout; cIdx <- readLn
+        let classe' = case cIdx of
+                        0 -> Guerreiro
+                        1 -> Mago
+                        2 -> Ladino
+                        3 -> Clerigo
+                        4 -> Arqueiro
+                        _ -> Guerreiro -- valor padrão
+        putStrLn "Escolha a Raça:"
+        putStrLn "0. Humano"
+        putStrLn "1. Elfo"
+        putStrLn "2. Anao"
+        putStrLn "3. Orc"
+        putStrLn "4. Goblin"
+        putStr "Digite o número da raça: "; hFlush stdout; rIdx <- readLn
+        let raca' = case rIdx of
+                      0 -> Humano
+                      1 -> Elfo
+                      2 -> Anao
+                      3 -> Orc
+                      4 -> Goblin
+                      _ -> Humano -- valor padrão
         putStr "Força: "; hFlush stdout; f <- readLn
         putStr "Inteligência: "; hFlush stdout; i <- readLn
         putStr "Destreza: "; hFlush stdout; d <- readLn
-        let classe' = read (capitalize c) :: Classe
-            raca' = read (capitalize r) :: Raca
-            novo = criarPersonagem n classe' raca' (Atributos f i d)
+        let novo = criarPersonagem n classe' raca' (Atributos f i d)
         menu (adicionarPersonagem novo ps)
       "3" -> do
         putStr "Nome do personagem a remover: "; hFlush stdout; n <- getLine
@@ -72,7 +97,7 @@ menu ps = do
 
 capitalize :: String -> String
 capitalize [] = []
-capitalize (x:xs) = toEnum (fromEnum x - 32 * fromEnum (x >= 'a' && x <= 'z')) : xs
+capitalize (x:xs) = toUpper x : xs
 
 main :: IO ()
 main = do

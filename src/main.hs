@@ -8,6 +8,15 @@ import Personagem
 import Nomeavel
 import System.IO
 import Data.Char (toUpper)
+import System.Info (os)
+import System.Process (callCommand)
+
+-- Função para limpar o terminal
+limparTerminal :: IO ()
+limparTerminal = 
+  if os == "mingw32"  -- Windows
+  then callCommand "cls"
+  else callCommand "clear"  -- Para sistemas Unix-like
 
 -- Função para mostrar todos os personagens com descrição completa
 mostrarPersonagens :: [Personagem] -> IO ()
@@ -22,7 +31,7 @@ adicionarItemPersonagem nomeItem nomePersonagem descricao ps =
   let (antes, resto) = break (\p -> obterNome p == nomePersonagem) ps
   in case resto of
        [] -> ps  -- Personagem não encontrado
-       (p:depois) ->
+       (p:depois) -> 
          let pAtualizado = adicionarItem (Item nomeItem descricao) p
          in antes ++ [pAtualizado] ++ depois
 
@@ -51,8 +60,10 @@ menu ps = do
     putStr "Escolha uma opção: "
     hFlush stdout
     op <- getLine
+    limparTerminal  -- Limpa o terminal antes de adicionar um personagem
     case op of
       "1" -> do
+        -- Não limpa o terminal ao listar personagens
         mostrarPersonagens ps
         menu ps
       "2" -> do
@@ -91,9 +102,11 @@ menu ps = do
         let novo = criarPersonagem n classe' raca' (Atributos f i d)
         menu (adicionarPersonagem novo ps)
       "3" -> do
+        limparTerminal  -- Limpa o terminal antes de remover um personagem
         putStr "Nome do personagem a remover: "; hFlush stdout; n <- getLine
         menu (removerPersonagemMain n ps)  -- Usando a função renomeada
       "4" -> do
+        limparTerminal  -- Limpa o terminal antes de adicionar item
         putStr "Nome do personagem: "; hFlush stdout; n <- getLine
         putStr "Nome do item: "; hFlush stdout; ni <- getLine
         putStr "Descrição do item: "; hFlush stdout; di <- getLine
@@ -106,15 +119,18 @@ menu ps = do
             putStrLn "Erro: Personagem não encontrado!"
             menu ps
       "5" -> do
+        limparTerminal  -- Limpa o terminal antes de remover item
         putStr "Nome do personagem: "; hFlush stdout; n <- getLine
         putStr "Nome do item a remover: "; hFlush stdout; ni <- getLine
         let ps' = [if obterNome p == n then removerItem ni p else p | p <- ps]
         menu ps'
       "6" -> do
+        limparTerminal  -- Limpa o terminal antes de salvar
         writeFile "personagens.txt" (show ps)
         putStrLn "\nPersonagens salvos com sucesso!"
         menu ps
       "7" -> do
+        limparTerminal  -- Limpa o terminal antes de carregar
         conteudo <- readFile "personagens.txt"
         let ps' = read conteudo :: [Personagem]
         putStrLn "\nPersonagens carregados com sucesso!"
@@ -122,6 +138,7 @@ menu ps = do
       "0" -> putStrLn "Saindo... Até logo!"
       _   -> menu ps
 
+-- Função para capitalizar a primeira letra de uma string
 capitalize :: String -> String
 capitalize [] = []
 capitalize (x:xs) = toUpper x : xs
@@ -129,4 +146,4 @@ capitalize (x:xs) = toUpper x : xs
 main :: IO ()
 main = do
   putStrLn "Bem-vindo ao Sistema de Criação de Personagens de RPG!"
-  menu []
+  menu []  -- Inicia o menu com a lista de personagens vazia

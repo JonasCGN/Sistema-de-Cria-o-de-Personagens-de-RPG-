@@ -1,6 +1,6 @@
 -- | Módulo de Tipos e Funções de Personagem para o sistema de RPG
 module Personagem (
-    Classe(..), Raca(..), Atributos(..), Item(..), Personagem,
+    Classe(..), Raca(..), Atributos(..), Item(..), Personagem(..), -- Exporta o tipo, construtor e todos os campos
     criarPersonagem, encontrarPersonagem, adicionarItem, removerItem,
     listarPersonagens, removerPersonagem, temItem, descricaoCompleta
 ) where
@@ -47,6 +47,7 @@ data Item = Item {
   descricaoItem :: String
 } deriving (Show, Eq, Read)
 
+-- Definição do tipo Personagem com record syntax (gera seletores automaticamente)
 data Personagem = Personagem {
   nome :: String,
   classe :: Classe,
@@ -85,3 +86,4 @@ temItem nomeIt p = any ((== nomeIt) . nomeItem) (inventario p)
 
 descricaoCompleta :: Personagem -> String
 descricaoCompleta p = nome p ++ " (" ++ show (classe p) ++ ", " ++ show (raca p) ++ ")\nAtributos: " ++ show (atributos p) ++ "\nItens: " ++ show (map nomeItem (inventario p))
+

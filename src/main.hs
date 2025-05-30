@@ -7,11 +7,15 @@ module Main where
 import Personagem
 import Nomeavel
 import Aleatorio
+import Formato_ficha
 import System.IO
 import Data.Char (toUpper, toLower, isSpace)
 import qualified Data.Map as Map
 import System.Info (os)
 import System.Process (callCommand)
+import Control.Exception (IOException, catch)
+import Text.Read (readMaybe) 
+import Data.List (find) 
 
 -- Funções para cores e estilos ANSI
 corReset :: String
@@ -253,18 +257,22 @@ menuComContador ps contadores = do
                 putStrLn $ mensagemSucesso "Item removido com sucesso!"
                 menuComContador ps' contadores
 
-    "6" -> do
-      limparTerminal
-      writeFile "personagens.txt" (show ps)
-      putStrLn $ "\n" ++ mensagemSucesso "Personagens salvos com sucesso!"
-      menuComContador ps contadores
+    "6" -> do -- Salvar usando o módulo FichaPersistencia
+        limparTerminal
+        salvarPersonagensFicha "personagens_ficha.txt" ps -- Chama a função do módulo
+        putStrLn $ "\n" ++ mensagemSucesso "Personagens salvos com sucesso no formato de ficha! (personagens_ficha.txt)"
+        menuComContador ps contadores
 
-    "7" -> do
+    "7" -> do -- Carregar usando o módulo FichaPersistencia
       limparTerminal
-      conteudo <- readFile "personagens.txt"
-      let ps' = read conteudo :: [Personagem]
-      putStrLn $ "\n" ++ mensagemSucesso "Personagens carregados com sucesso!"
-      menuComContador ps' contadores
+      resultado <- carregarPersonagensFicha "personagens_ficha.txt" -- Chama a função do módulo
+      case resultado of
+        Right ps' -> do
+          putStrLn $ "\n" ++ mensagemSucesso "Personagens carregados com sucesso do formato de ficha!"
+          menuComContador ps' contadores
+        Left erroMsg -> do
+          putStrLn $ "\n" ++ mensagemErro erroMsg
+          menuComContador ps contadores -- Continua com a lista antiga em caso de erro
 
     "8" -> do
       limparTerminal

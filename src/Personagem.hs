@@ -48,23 +48,26 @@ data Item = Item {
 } deriving (Show, Eq, Read)
 
 -- Definição do tipo Personagem com record syntax (gera seletores automaticamente)
-data Personagem = Personagem {
-  nome :: String,
-  classe :: Classe,
-  raca :: Raca,
-  atributos :: Atributos,
-  inventario :: [Item]
-} deriving (Show, Eq, Read)
+data Personagem = Personagem
+  { nome :: String
+  , classe :: Classe
+  , raca :: Raca
+  , atributos :: Atributos
+  , inventario :: [Item]
+  , historia :: String
+  } deriving (Show, Eq, Read)
 
+-- Instância de Nomeavel para Personagem
 instance Nomeavel Personagem where
     obterNome = nome
 
+-- Instância de Nomeavel para Item
 instance Nomeavel Item where
     obterNome = nomeItem
 
 -- Funções de manipulação
-criarPersonagem :: String -> Classe -> Raca -> Atributos -> Personagem
-criarPersonagem n c r a = Personagem n c r a []
+criarPersonagem :: String -> Classe -> Raca -> Atributos -> String -> Personagem 
+criarPersonagem n c r a h = Personagem n c r a [] h
 
 encontrarPersonagem :: String -> [Personagem] -> Maybe Personagem
 encontrarPersonagem n = foldr (\p acc -> if nome p == n then Just p else acc) Nothing
@@ -85,5 +88,4 @@ temItem :: String -> Personagem -> Bool
 temItem nomeIt p = any ((== nomeIt) . nomeItem) (inventario p)
 
 descricaoCompleta :: Personagem -> String
-descricaoCompleta p = nome p ++ " (" ++ show (classe p) ++ ", " ++ show (raca p) ++ ")\nAtributos: " ++ show (atributos p) ++ "\nItens: " ++ show (map nomeItem (inventario p))
-
+descricaoCompleta p = nome p ++ " (" ++ show (classe p) ++ ", " ++ show (raca p) ++ ")\nAtributos: " ++ show (atributos p) ++ "\nItens: " ++ show (map nomeItem (inventario p)) ++ "\n" ++"História: " ++ historia p

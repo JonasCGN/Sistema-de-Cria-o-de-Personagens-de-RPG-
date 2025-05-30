@@ -1,4 +1,3 @@
--- Módulo para persistência de personagens em formato de ficha
 module Formato_ficha (
     salvarPersonagensFicha,
     carregarPersonagensFicha
@@ -11,6 +10,7 @@ import Control.Exception (IOException, catch)
 import Data.List (intercalate, find, isPrefixOf, dropWhile)
 import Text.Read (readMaybe)
 import Data.Char (toLower, isSpace) 
+import Data.Maybe (fromMaybe)  -- Adicionada a importação
 
 -- Função auxiliar para remover espaços no início e fim (copiada do main)
 trim :: String -> String
@@ -48,6 +48,11 @@ personagemParaFicha p =
     if null (inventario p)
       then "  (Vazio)"
       else intercalate "\n" (map itemParaFicha (inventario p)),
+    "---------------------------------------",
+    "História:",
+    if null (historia p)
+      then "  (Sem história)"
+      else historia p,
     "======================================="
   ]
 
@@ -102,7 +107,7 @@ parseItem linha =
      then Nothing
      else Just $ Item (trim nomeStr) (trim $ drop 1 descStr)
 
--- Parse de uma ficha (String) para Personagem
+-- Função parse de uma ficha (String) para Personagem
 fichaParaPersonagem :: String -> Maybe Personagem
 fichaParaPersonagem fichaStr = 
   let linhas = lines fichaStr
@@ -112,15 +117,20 @@ fichaParaPersonagem fichaStr =
       getForcaStr = extrairValor "Força:        " =<< find (isPrefixOf "  Força:        ") linhas
       getIntStr = extrairValor "Inteligência: " =<< find (isPrefixOf "  Inteligência: ") linhas
       getDexStr = extrairValor "Destreza:     " =<< find (isPrefixOf "  Destreza:     ") linhas
+      getHistoriaStr = extrairValor "História: " =<< find (isPrefixOf "História: ") linhas
       
-      -- Encontra a seção do inventário (mais robusto)
+      -- Encontra a seção do inventário
       invSecao = dropWhile (not . isPrefixOf "Inventário:") linhas
       invLinhas = if null invSecao then [] else takeWhile (not . isPrefixOf "=======================================") (drop 1 invSecao)
       
       -- Parse dos itens, ignorando a linha '(Vazio)'
       parsedItens = mapMaybe parseItem $ filter (isPrefixOf "  - ") invLinhas
 
-  in do -- Usando do-notation para Maybe
+      -- Captura a história
+      historia = getHistoriaStr -- Agora é só uma string simples
+
+  in do
+    -- Obtém e valida os valores extraídos
     nome <- getNome
     classeStr <- getClasseStr
     classe' <- stringParaClasse classeStr
@@ -132,8 +142,19 @@ fichaParaPersonagem fichaStr =
     int' <- readMaybe intStr :: Maybe Int
     dexStr <- getDexStr
     dex' <- readMaybe dexStr :: Maybe Int
-    
-    return $ Personagem nome classe' raca' (Atributos forca' int' dex') parsedItens
+
+    -- Agora a história é apenas uma string
+    let historia' = fromMaybe "(Sem história)" historia
+
+    -- Aqui, garantimos que parsedItens está no formato correto
+    return $ Personagem
+      nome
+      classe'
+      raca'
+      (Atributos forca' int' dex')
+      parsedItens      -- Lista de Item
+      historia'        -- História como uma string simples
+
 
 -- Divide o conteúdo do arquivo em blocos de ficha (String)
 splitFichas :: String -> [String]
@@ -160,13 +181,9 @@ carregarPersonagensFicha path =
             then return $ Right [] -- Retorna lista vazia se o arquivo estiver vazio
             else do
               let fichasStr = splitFichas conteudo
-              -- putStrLn $ "Debug: Fichas encontradas: " ++ show (length fichasStr) -- Linha de debug (remover depois)
-              -- mapM_ (putStrLn . ("Debug Ficha:\n" ++)) fichasStr -- Linha de debug (remover depois)
               let maybePersonagens = mapMaybe fichaParaPersonagem fichasStr -- Tenta parsear todas as fichas
-              -- putStrLn $ "Debug: Personagens parseados: " ++ show (length maybePersonagens) -- Linha de debug (remover depois)
               if length maybePersonagens == length fichasStr
                 then return $ Right maybePersonagens
                 else return $ Left "Erro ao parsear uma ou mais fichas no arquivo. Verifique o formato."
         )
         (\e -> return $ Left $ "Erro ao ler o arquivo: " ++ show (e :: IOException))
-

@@ -10,7 +10,15 @@ import Aleatorio
 import System.IO
 import Data.Char (toUpper, toLower, isSpace)
 import qualified Data.Map as Map
+import System.Info (os)
+import System.Process (callCommand)
 
+-- Função para limpar o terminal
+limparTerminal :: IO ()
+limparTerminal = 
+  if os == "mingw32"  -- Windows
+  then callCommand "cls"
+  else callCommand "clear"  -- Para sistemas Unix-like
 type Contadores = Map.Map Int Int
 
 -- Função para obter o próximo contador para uma seed
@@ -74,10 +82,12 @@ menuComContador ps contadores = do
   op <- getLine
   case op of
     "1" -> do
+      limparTerminal
       mostrarPersonagens ps
       menuComContador ps contadores
 
     "2" -> do
+      limparTerminal
       putStrLn "Caso você escreva um valor inválido nas opções abaixo, seu personagem receberá as configurações padrão (Guerreiro/Humano)"
       putStr "Nome: "; hFlush stdout; n <- getLine
       putStrLn "Escolha a Classe:"
@@ -139,6 +149,7 @@ menuComContador ps contadores = do
       menuComContador (adicionarPersonagem novo ps) contadores
 
     "3" -> do
+      limparTerminal
       putStr "Nome do personagem a remover: "; hFlush stdout; n <- getLine
       let nomeNormalizado = map toLower (trim n)
       if any (\p -> map toLower (trim (obterNome p)) == nomeNormalizado) ps
@@ -151,6 +162,7 @@ menuComContador ps contadores = do
           menuComContador ps contadores
 
     "4" -> do
+      limparTerminal
       putStr "Nome do personagem: "; hFlush stdout; n <- getLine
       putStr "Nome do item: "; hFlush stdout; ni <- getLine
       putStr "Descrição do item: "; hFlush stdout; di <- getLine
@@ -165,6 +177,7 @@ menuComContador ps contadores = do
           menuComContador ps contadores
 
     "5" -> do
+      limparTerminal
       putStr "Nome do personagem: "; hFlush stdout; n <- getLine
       putStr "Nome do item a remover: "; hFlush stdout; ni <- getLine
       let nomeNormalizado = map toLower (trim n)
@@ -187,17 +200,20 @@ menuComContador ps contadores = do
                 menuComContador ps' contadores
 
     "6" -> do
+      limparTerminal
       writeFile "personagens.txt" (show ps)
       putStrLn "\nPersonagens salvos com sucesso!"
       menuComContador ps contadores
 
     "7" -> do
+      limparTerminal
       conteudo <- readFile "personagens.txt"
       let ps' = read conteudo :: [Personagem]
       putStrLn "\nPersonagens carregados com sucesso!"
       menuComContador ps' contadores
 
     "8" -> do
+      limparTerminal
       putStrLn "Digite um número para gerar personagem aleatório (seed): "
       hFlush stdout
       seedStr <- getLine

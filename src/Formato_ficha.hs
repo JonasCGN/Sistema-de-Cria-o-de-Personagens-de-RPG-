@@ -6,11 +6,16 @@ module Formato_ficha (
 import Personagem
 import Nomeavel 
 import System.IO
-import Control.Exception (IOException, catch)
+import Control.Exception (try, catch, IOException)
 import Data.List (intercalate, find, isPrefixOf, dropWhile)
 import Text.Read (readMaybe)
 import Data.Char (toLower, isSpace) 
-import Data.Maybe (fromMaybe)  -- Adicionada a importação
+import Data.Maybe (catMaybes, mapMaybe,isJust)
+import Data.Either (partitionEithers)
+import qualified Data.Maybe as DM
+
+
+
 
 -- Função auxiliar para remover espaços no início e fim (copiada do main)
 trim :: String -> String
@@ -29,36 +34,50 @@ itemParaFicha :: Item -> String
 itemParaFicha (Item n d) = "  - " ++ n ++ ": " ++ d
 
 -- Converte um Personagem para formato de ficha String
+-- Separadores usados (39 caracteres)
+separadorIgual :: String
+separadorIgual = replicate 39 '='
+
+separadorTraco :: String
+separadorTraco = replicate 39 '-'
+
+-- Converte um Personagem para formato de ficha String com formato exato desejado
 personagemParaFicha :: Personagem -> String
 personagemParaFicha p = 
   unlines [
-    "=======================================",
-    "           FICHA DE PERSONAGEM",
-    "=======================================",
+    separadorIgual,
     "Nome: " ++ obterNome p,
     "Classe: " ++ show (classe p),
     "Raça: " ++ show (raca p),
-    "---------------------------------------",
+    separadorTraco,
     "Atributos:",
     "  Força:        " ++ show (forca $ atributos p),
     "  Inteligência: " ++ show (inteligencia $ atributos p),
     "  Destreza:     " ++ show (destreza $ atributos p),
-    "---------------------------------------",
+    separadorTraco,
     "Inventário:",
     if null (inventario p)
       then "  (Vazio)"
       else intercalate "\n" (map itemParaFicha (inventario p)),
-    "---------------------------------------",
+    separadorTraco,
     "História:",
     if null (historia p)
       then "  (Sem história)"
       else historia p,
-    "======================================="
+    separadorIgual
   ]
+
+
+-- Remove a última quebra de linha, se existir
+removeUltimaQuebra :: String -> String
+removeUltimaQuebra s = if not (null s) && last s == '\n' then init s else s
+
 
 -- Salva a lista de personagens no formato de ficha
 salvarPersonagensFicha :: FilePath -> [Personagem] -> IO ()
-salvarPersonagensFicha path ps = writeFile path (intercalate "\n\n" (map personagemParaFicha ps)) -- Adiciona linha extra entre fichas
+salvarPersonagensFicha path ps = writeFile path (intercalate "\n\n" (map (removeUltimaQuebra . personagemParaFicha) ps))
+
+
 
 -- Função auxiliar para extrair valor de uma linha chave-valor
 extrairValor :: String -> String -> Maybe String
@@ -66,6 +85,7 @@ extrairValor chave linha =
   if chave `isPrefixOf` linha
   then Just $ trim $ drop (length chave) linha
   else Nothing
+
 
 -- Converte String de volta para Classe (com tratamento de erro)
 stringParaClasse :: String -> Maybe Classe
@@ -107,30 +127,24 @@ parseItem linha =
      then Nothing
      else Just $ Item (trim nomeStr) (trim $ drop 1 descStr)
 
+
 -- Função parse de uma ficha (String) para Personagem
 fichaParaPersonagem :: String -> Maybe Personagem
-fichaParaPersonagem fichaStr = 
+fichaParaPersonagem fichaStr =
   let linhas = lines fichaStr
-      getNome = extrairValor "Nome: " =<< find (isPrefixOf "Nome: ") linhas
+      getNome = extrairValor "Nome:" =<< find (isPrefixOf "Nome: ") linhas
       getClasseStr = extrairValor "Classe: " =<< find (isPrefixOf "Classe: ") linhas
-      getRacaStr = extrairValor "Raça: " =<< find (isPrefixOf "Raça: ") linhas
-      getForcaStr = extrairValor "Força:        " =<< find (isPrefixOf "  Força:        ") linhas
-      getIntStr = extrairValor "Inteligência: " =<< find (isPrefixOf "  Inteligência: ") linhas
-      getDexStr = extrairValor "Destreza:     " =<< find (isPrefixOf "  Destreza:     ") linhas
-      getHistoriaStr = extrairValor "História: " =<< find (isPrefixOf "História: ") linhas
-      
-      -- Encontra a seção do inventário
+      getRacaStr = extrairValor "Raça:" =<< find (isPrefixOf "Raça: ") linhas
+      getForcaStr = extrairValor "Força:" =<< find (isPrefixOf "  Força:") linhas
+      getIntStr = extrairValor "Inteligência:" =<< find (isPrefixOf "  Inteligência:") linhas
+      getDexStr = extrairValor "Destreza:" =<< find (isPrefixOf "  Destreza:") linhas
+      getHistoriaStr = extrairValor "História:" =<< find (isPrefixOf "História: ") linhas
+
       invSecao = dropWhile (not . isPrefixOf "Inventário:") linhas
       invLinhas = if null invSecao then [] else takeWhile (not . isPrefixOf "=======================================") (drop 1 invSecao)
-      
-      -- Parse dos itens, ignorando a linha '(Vazio)'
-      parsedItens = mapMaybe parseItem $ filter (isPrefixOf "  - ") invLinhas
-
-      -- Captura a história
-      historia = getHistoriaStr -- Agora é só uma string simples
+      parsedItens = DM.mapMaybe parseItem $ filter (isPrefixOf "  - ") invLinhas
 
   in do
-    -- Obtém e valida os valores extraídos
     nome <- getNome
     classeStr <- getClasseStr
     classe' <- stringParaClasse classeStr
@@ -142,18 +156,17 @@ fichaParaPersonagem fichaStr =
     int' <- readMaybe intStr :: Maybe Int
     dexStr <- getDexStr
     dex' <- readMaybe dexStr :: Maybe Int
-
-    -- Agora a história é apenas uma string
-    let historia' = fromMaybe "(Sem história)" historia
-
-    -- Aqui, garantimos que parsedItens está no formato correto
+    let historia' = case getHistoriaStr of
+                      Just h | h /= "(Sem história)" -> h
+                      _ -> ""
     return $ Personagem
       nome
       classe'
       raca'
       (Atributos forca' int' dex')
-      parsedItens      -- Lista de Item
-      historia'        -- História como uma string simples
+      parsedItens
+      historia'
+
 
 
 -- Divide o conteúdo do arquivo em blocos de ficha (String)
@@ -174,16 +187,27 @@ splitFichas = go . lines
 
 -- Carrega a lista de personagens do formato de ficha
 carregarPersonagensFicha :: FilePath -> IO (Either String [Personagem])
-carregarPersonagensFicha path = 
-  catch (do
-          conteudo <- readFile path
-          if null (trim conteudo) 
-            then return $ Right [] -- Retorna lista vazia se o arquivo estiver vazio
-            else do
-              let fichasStr = splitFichas conteudo
-              let maybePersonagens = mapMaybe fichaParaPersonagem fichasStr -- Tenta parsear todas as fichas
-              if length maybePersonagens == length fichasStr
-                then return $ Right maybePersonagens
-                else return $ Left "Erro ao parsear uma ou mais fichas no arquivo. Verifique o formato."
-        )
-        (\e -> return $ Left $ "Erro ao ler o arquivo: " ++ show (e :: IOException))
+carregarPersonagensFicha path = do
+    resultado <- try (readFile path) :: IO (Either IOException String)
+    case resultado of
+      Left e -> return $ Left $ "Erro ao ler o arquivo: " ++ show e
+      Right conteudo
+        | null (trim conteudo) -> return $ Right []
+        | otherwise -> do
+            let fichasStr = splitFichas conteudo
+            putStrLn $ "Fichas extraídas: " ++ show (length fichasStr)
+            mapM_ (putStrLn . ("Ficha: " ++)) fichasStr
+
+            let resultados = map fichaParaPersonagem fichasStr  -- [Maybe Personagem]
+            putStrLn $ "Resultados do parse: " ++ show (map isJust resultados)
+
+            let personagens = catMaybes resultados
+            let errosCount = length (filter (== Nothing) resultados)
+
+            if errosCount == 0
+              then return $ Right personagens
+              else return $ Left $ "Erros ao parsear " ++ show errosCount ++ " fichas"
+
+
+
+

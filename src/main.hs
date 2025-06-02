@@ -204,6 +204,7 @@ menuComContador ps contadores = do
       putStr $ promptUsuario "historia: "; hFlush stdout; historia <- getLine
       let novo = criarPersonagem n classe' raca' (Atributos f i d) historia
       putStrLn $ "\n" ++ mensagemSucesso ("Personagem '" ++ n ++ "' criado com sucesso!")
+      putStrLn $ "DEBUG: Número de personagens na lista: " ++ show (length ps)
       menuComContador (adicionarPersonagem novo ps) contadores
 
     "3" -> do

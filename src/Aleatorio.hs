@@ -16,7 +16,7 @@ nomesAleatorios :: [String]
 nomesAleatorios = [ "Arthan", "Lyra", "Drogan", "Thalia", "Merric", "Kael", "Seraph", "Nym", "Torak", "Elaith", "Varyn", "Zara", "Dorian", "Faelan", "Kaelen", "Liora", "Tarin", "Sylas", "Eryndor", "Myra", "Jorin", "Selene", "Theron", "Isolde", "Kieran", "Alaric", "Mira", "Nolan", "Elara", "Galen"]
 
 historiaAleatoria :: [String]
-historiaAleatoria = [ "nasceu em uma pequena vila.", "cresceu em uma floresta encantada.", "foi treinado por um velho sábio.", "descobriu um antigo artefato mágico.", "teve uma infância difícil, mas superou os desafios.", "encontrou um dragão adormecido nas montanhas.", "foi escolhido por uma deidade para uma missão sagrada.", "descobriu que possui habilidades mágicas únicas."]
+historiaAleatoria = [ "Nasceu em uma pequena vila.", "Cresceu em uma floresta encantada.", "Foi treinado por um velho sábio.", "Descobriu um antigo artefato mágico.", "Teve uma infância difícil, mas superou os desafios.", "Encontrou um dragão adormecido nas montanhas.", "Foi escolhido por uma deidade para uma missão sagrada.", "Descobriu que possui habilidades mágicas únicas."]
 
 -- Função para pegar uma história aleatória
 pegarHistoriaAleatoria :: Int -> String

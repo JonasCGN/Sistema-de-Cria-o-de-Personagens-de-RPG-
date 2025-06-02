@@ -4,210 +4,185 @@ module Formato_ficha (
 ) where
 
 import Personagem
-import Nomeavel 
+import Nomeavel
 import System.IO
 import Control.Exception (try, catch, IOException)
-import Data.List (intercalate, find, isPrefixOf, dropWhile)
+import Data.List (intercalate, find, findIndex, isPrefixOf, dropWhile, isInfixOf)
 import Text.Read (readMaybe)
-import Data.Char (toLower, isSpace) 
-import Data.Maybe (catMaybes, mapMaybe,isJust)
+import Data.Char (isSpace)
+import Data.Maybe (catMaybes, mapMaybe, isJust)
 import Data.Either (partitionEithers)
-import qualified Data.Maybe as DM
 
+-- Marcadores para o novo formato
+marcadorInicioPersonagem :: String
+marcadorInicioPersonagem = "[PERSONAGEM]"
 
+marcadorFimPersonagem :: String
+marcadorFimPersonagem = "[FIM_PERSONAGEM]"
 
+marcadorInicioInventario :: String
+marcadorInicioInventario = "[INVENTARIO]"
 
--- Função auxiliar para remover espaços no início e fim (copiada do main)
+marcadorFimInventario :: String
+marcadorFimInventario = "[FIM_INVENTARIO]"
+
+marcadorInicioHistoria :: String
+marcadorInicioHistoria = "[HISTORIA]"
+
+marcadorFimHistoria :: String
+marcadorFimHistoria = "[FIM_HISTORIA]"
+
+-- Função auxiliar para remover espaços no início e fim
 trim :: String -> String
 trim = f . f
   where f = reverse . dropWhile Data.Char.isSpace
 
--- Função auxiliar para parsear Maybe (copiada do main)
-mapMaybe :: (a -> Maybe b) -> [a] -> [b]
-mapMaybe f = foldr go []
-    where go x xs = case f x of
-                      Just y -> y : xs
-                      Nothing -> xs
+-- Converte um Item para String formatada no novo formato
+itemParaString :: Item -> String
+itemParaString (Item n d) = n ++ ": " ++ d
 
--- Converte um Item para String formatada
-itemParaFicha :: Item -> String
-itemParaFicha (Item n d) = "  - " ++ n ++ ": " ++ d
+-- Converte String de volta para Item (Corrigido novamente)
+stringParaItem :: String -> Maybe Item
+stringParaItem linha = 
+  let (nomeStr, descRest) = break (== ':') linha -- Usa Char ':' para dividir a String
+  -- Verifica se descRest não é vazio E se o primeiro caractere é de fato ':'
+  in if null descRest || head descRest /= ':' 
+     then Nothing -- ':' não encontrado ou não é o primeiro char de descRest
+     -- drop 1 remove o ':' inicial de descRest antes de trimar
+     else Just $ Item (trim nomeStr) (trim $ drop 1 descRest) 
 
--- Converte um Personagem para formato de ficha String
--- Separadores usados (39 caracteres)
-separadorIgual :: String
-separadorIgual = replicate 39 '='
+-- Converte um Personagem para formato de String no novo formato
+personagemParaString :: Personagem -> String
+personagemParaString p = 
+  unlines $ 
+    [ marcadorInicioPersonagem
+    , "Nome: " ++ obterNome p
+    , "Classe: " ++ show (classe p)
+    , "Raça: " ++ show (raca p)
+    , "Forca: " ++ show (forca $ atributos p)
+    , "Inteligencia: " ++ show (inteligencia $ atributos p)
+    , "Destreza: " ++ show (destreza $ atributos p)
+    , marcadorInicioInventario
+    ] ++
+    (if null (inventario p) then [] else map itemParaString (inventario p)) ++
+    [ marcadorFimInventario
+    , marcadorInicioHistoria
+    ] ++
+    (if null (historia p) then [] else lines (historia p)) ++
+    [ marcadorFimHistoria
+    , marcadorFimPersonagem
+    ]
 
-separadorTraco :: String
-separadorTraco = replicate 39 '-'
-
--- Converte um Personagem para formato de ficha String com formato exato desejado
-personagemParaFicha :: Personagem -> String
-personagemParaFicha p = 
-  unlines [
-    separadorIgual,
-    "Nome: " ++ obterNome p,
-    "Classe: " ++ show (classe p),
-    "Raça: " ++ show (raca p),
-    separadorTraco,
-    "Atributos:",
-    "  Força:        " ++ show (forca $ atributos p),
-    "  Inteligência: " ++ show (inteligencia $ atributos p),
-    "  Destreza:     " ++ show (destreza $ atributos p),
-    separadorTraco,
-    "Inventário:",
-    if null (inventario p)
-      then "  (Vazio)"
-      else intercalate "\n" (map itemParaFicha (inventario p)),
-    separadorTraco,
-    "História:",
-    if null (historia p)
-      then "  (Sem história)"
-      else historia p,
-    separadorIgual
-  ]
-
-
--- Remove a última quebra de linha, se existir
-removeUltimaQuebra :: String -> String
-removeUltimaQuebra s = if not (null s) && last s == '\n' then init s else s
-
-
--- Salva a lista de personagens no formato de ficha
+-- Salva a lista de personagens no novo formato
 salvarPersonagensFicha :: FilePath -> [Personagem] -> IO ()
-salvarPersonagensFicha path ps = writeFile path (intercalate "\n\n" (map (removeUltimaQuebra . personagemParaFicha) ps))
-
-
+salvarPersonagensFicha path ps = 
+    writeFile path (intercalate "\n" (map personagemParaString ps))
 
 -- Função auxiliar para extrair valor de uma linha chave-valor
-extrairValor :: String -> String -> Maybe String
-extrairValor chave linha = 
-  if chave `isPrefixOf` linha
-  then Just $ trim $ drop (length chave) linha
-  else Nothing
+extrairValor :: String -> [String] -> Maybe String
+extrairValor chave linhas = 
+    -- Garante que a chave tenha um espaço após ela para evitar matches parciais (ex: "Forca:" vs "Forca Extra:")
+    fmap (trim . drop (length chave)) (find (isPrefixOf chave) linhas)
 
-
--- Converte String de volta para Classe (com tratamento de erro)
+-- Converte String de volta para Classe (sem Enum)
 stringParaClasse :: String -> Maybe Classe
-stringParaClasse s = case s of
-  "Barbaro" -> Just Barbaro
-  "Bardo" -> Just Bardo
-  "Bruxo" -> Just Bruxo
-  "Clerigo" -> Just Clerigo
-  "Druida" -> Just Druida
-  "Feiticeiro" -> Just Feiticeiro
-  "Guerreiro" -> Just Guerreiro
-  "Ladino" -> Just Ladino
-  "Mago" -> Just Mago
-  "Monge" -> Just Monge
-  "Paladino" -> Just Paladino
-  "Patrulheiro" -> Just Patrulheiro
-  _ -> Nothing
+stringParaClasse s = lookup s classeMap
+  where classeMap = [
+          ("Barbaro", Barbaro), ("Bardo", Bardo), ("Bruxo", Bruxo),
+          ("Clerigo", Clerigo), ("Druida", Druida), ("Feiticeiro", Feiticeiro),
+          ("Guerreiro", Guerreiro), ("Ladino", Ladino), ("Mago", Mago),
+          ("Monge", Monge), ("Paladino", Paladino), ("Patrulheiro", Patrulheiro)]
 
--- Converte String de volta para Raça (com tratamento de erro)
+-- Converte String de volta para Raça (sem Enum, sintaxe revisada)
 stringParaRaca :: String -> Maybe Raca
-stringParaRaca s = case s of
-  "Humano" -> Just Humano
-  "Elfo" -> Just Elfo
-  "Anão" -> Just Anão
-  "Halfling" -> Just Halfling
-  "MeioOrc" -> Just MeioOrc
-  "MeioElfo" -> Just MeioElfo
-  "Gnomo" -> Just Gnomo
-  "Draconato" -> Just Draconato
-  "Tiefling" -> Just Tiefling
-  _ -> Nothing
+stringParaRaca s = lookup s racaMap
+  where racaMap = [
+          ("Humano", Humano), ("Elfo", Elfo), ("Anão", Anão),
+          ("Halfling", Halfling), ("MeioOrc", MeioOrc), ("MeioElfo", MeioElfo),
+          ("Gnomo", Gnomo), ("Draconato", Draconato), ("Tiefling", Tiefling)] -- Fechamento do colchete estava correto, mas revisado.
 
--- Parse de um item do inventário
-parseItem :: String -> Maybe Item
-parseItem linha = 
-  let trimmed = trim $ dropWhile (== '-') $ trim linha -- Remove '  - ' inicial
-      (nomeStr, descStr) = break (== ':') trimmed
-  in if null descStr || null nomeStr
-     then Nothing
-     else Just $ Item (trim nomeStr) (trim $ drop 1 descStr)
+-- Extrai uma seção delimitada por marcadores de início e fim
+extrairSecao :: String -> String -> [String] -> [String]
+extrairSecao inicio fim linhas = 
+    case findIndex (== inicio) linhas of
+        Nothing -> []
+        Just startIdx -> 
+            case findIndex (== fim) (drop (startIdx + 1) linhas) of
+                Nothing -> [] -- Marcador de fim não encontrado
+                Just endOffset -> take endOffset (drop (startIdx + 1) linhas)
 
+-- Função parse de um bloco de linhas (String) para Personagem
+blocoParaPersonagem :: [String] -> Maybe Personagem
+blocoParaPersonagem bloco = do
+    -- Verifica marcadores de início e fim do bloco
+    guard (not (null bloco) && head bloco == marcadorInicioPersonagem && last bloco == marcadorFimPersonagem)
+    let linhas = tail (init bloco) -- Remove marcadores de início/fim
 
--- Função parse de uma ficha (String) para Personagem
-fichaParaPersonagem :: String -> Maybe Personagem
-fichaParaPersonagem fichaStr =
-  let linhas = lines fichaStr
-      getNome = extrairValor "Nome:" =<< find (isPrefixOf "Nome: ") linhas
-      getClasseStr = extrairValor "Classe: " =<< find (isPrefixOf "Classe: ") linhas
-      getRacaStr = extrairValor "Raça:" =<< find (isPrefixOf "Raça: ") linhas
-      getForcaStr = extrairValor "Força:" =<< find (isPrefixOf "  Força:") linhas
-      getIntStr = extrairValor "Inteligência:" =<< find (isPrefixOf "  Inteligência:") linhas
-      getDexStr = extrairValor "Destreza:" =<< find (isPrefixOf "  Destreza:") linhas
-      getHistoriaStr = extrairValor "História:" =<< find (isPrefixOf "História: ") linhas
-
-      invSecao = dropWhile (not . isPrefixOf "Inventário:") linhas
-      invLinhas = if null invSecao then [] else takeWhile (not . isPrefixOf "=======================================") (drop 1 invSecao)
-      parsedItens = DM.mapMaybe parseItem $ filter (isPrefixOf "  - ") invLinhas
-
-  in do
-    nome <- getNome
-    classeStr <- getClasseStr
+    -- Extrai campos simples (adicionado espaço após ': ' para match exato)
+    nome <- extrairValor "Nome: " linhas
+    classeStr <- extrairValor "Classe: " linhas
     classe' <- stringParaClasse classeStr
-    racaStr <- getRacaStr
+    racaStr <- extrairValor "Raça: " linhas
     raca' <- stringParaRaca racaStr
-    forcaStr <- getForcaStr
+    forcaStr <- extrairValor "Forca: " linhas
     forca' <- readMaybe forcaStr :: Maybe Int
-    intStr <- getIntStr
+    intStr <- extrairValor "Inteligencia: " linhas
     int' <- readMaybe intStr :: Maybe Int
-    dexStr <- getDexStr
+    dexStr <- extrairValor "Destreza: " linhas
     dex' <- readMaybe dexStr :: Maybe Int
-    let historia' = case getHistoriaStr of
-                      Just h | h /= "(Sem história)" -> h
-                      _ -> ""
-    return $ Personagem
-      nome
-      classe'
-      raca'
-      (Atributos forca' int' dex')
-      parsedItens
-      historia'
 
+    -- Extrai inventário
+    let invLinhas = extrairSecao marcadorInicioInventario marcadorFimInventario linhas
+    let inventario' = catMaybes $ map stringParaItem invLinhas
 
+    -- Extrai história
+    let histLinhas = extrairSecao marcadorInicioHistoria marcadorFimHistoria linhas
+    let historia' = intercalate "\n" histLinhas
 
--- Divide o conteúdo do arquivo em blocos de ficha (String)
-splitFichas :: String -> [String]
-splitFichas = go . lines
-  where
-    go [] = []
-    go ls = 
-      -- Encontra o início da próxima ficha
-      let inicioFicha = dropWhile (not . isPrefixOf "=======================================") ls
-      in if null inicioFicha 
-         then []
-         else 
-           -- Pega a ficha até o próximo separador duplo
-           let (fichaAtual, resto) = break (== "=======================================") (drop 1 inicioFicha)
-               fichaCompleta = unlines (take (length fichaAtual + 1) inicioFicha) -- Inclui o separador final
-           in fichaCompleta : go (drop 1 resto) -- Continua do próximo separador
+    return $ Personagem nome classe' raca' (Atributos forca' int' dex') inventario' historia'
 
--- Carrega a lista de personagens do formato de ficha
+-- Função auxiliar guard para Maybe
+guard :: Bool -> Maybe ()
+guard True = Just ()
+guard False = Nothing
+
+-- Divide o conteúdo do arquivo em blocos de personagem
+splitBlocos :: [String] -> [[String]]
+splitBlocos [] = []
+splitBlocos linhas = 
+    case findIndex (== marcadorInicioPersonagem) linhas of
+        Nothing -> [] -- Nenhum personagem encontrado
+        Just startIdx -> 
+            let afterStart = drop (startIdx) linhas
+            in case findIndex (== marcadorFimPersonagem) afterStart of
+                Nothing -> [] -- Bloco incompleto (sem fim)
+                Just endOffset -> 
+                    let blocoAtual = take (endOffset + 1) afterStart
+                        resto = drop (endOffset + 1) afterStart
+                    in blocoAtual : splitBlocos resto
+
+-- Carrega a lista de personagens do novo formato
 carregarPersonagensFicha :: FilePath -> IO (Either String [Personagem])
 carregarPersonagensFicha path = do
     resultado <- try (readFile path) :: IO (Either IOException String)
     case resultado of
-      Left e -> return $ Left $ "Erro ao ler o arquivo: " ++ show e
+      Left e -> return $ Left $ "Erro ao ler o arquivo '" ++ path ++ "': " ++ show e
       Right conteudo
-        | null (trim conteudo) -> return $ Right []
+        | null (trim conteudo) -> return $ Right [] -- Arquivo vazio
         | otherwise -> do
-            let fichasStr = splitFichas conteudo
-            putStrLn $ "Fichas extraídas: " ++ show (length fichasStr)
-            mapM_ (putStrLn . ("Ficha: " ++)) fichasStr
+            let linhas = lines conteudo
+            let blocos = splitBlocos linhas
+            -- putStrLn $ "DEBUG: Blocos encontrados: " ++ show (length blocos) -- Debug
+            -- mapM_ (putStrLn . ("Bloco: " ++) . show) blocos -- Debug
 
-            let resultados = map fichaParaPersonagem fichasStr  -- [Maybe Personagem]
-            putStrLn $ "Resultados do parse: " ++ show (map isJust resultados)
+            let parseResults = zip [1..] $ map blocoParaPersonagem blocos
+            -- putStrLn $ "DEBUG: Resultados do parse (Just/Nothing): " ++ show (map (isJust . snd) parseResults) -- Debug
 
-            let personagens = catMaybes resultados
-            let errosCount = length (filter (== Nothing) resultados)
+            let (erros, personagens) = partitionEithers $ map (\(idx, res) -> case res of
+                                                                              Just p -> Right p
+                                                                              Nothing -> Left idx) parseResults
 
-            if errosCount == 0
+            if null erros
               then return $ Right personagens
-              else return $ Left $ "Erros ao parsear " ++ show errosCount ++ " fichas"
-
-
-
+              else return $ Left $ "Erros ao parsear personagens nos blocos de índice (começando em 1): " ++ show erros ++ ". Total de " ++ show (length erros) ++ " erros."
 
